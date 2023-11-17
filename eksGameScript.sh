@@ -8,30 +8,34 @@ echo "This script will create an EKS cluster on AWS, running a web page hosted o
 echo "For this script to run properly, the AWS CLI, eksctl and kubectl need to be pre-installed."
 echo ""
 
+# Gets clusterName and the region that will be used, and also saves the users AWS Account ID
 read -p 'Name of the cluster?: ' clusterName
 read -p 'What is your region?: ' region
 awsAccountId=$(aws sts get-caller-identity --query 'Account' --output text)
 
 echo "Your AWS Account Id is: $awsAccountId"
 
+# Main command which creates the cluster on the specifications
+# TODO - if this command fails for any reason, create cluster cannot be run again due CloudFormationStack remaining
+# Need to come up with a solution to this problem in script
 eksctl create cluster --name "$clusterName" --region "$region" --fargate
-wait
 
+# Ensures that AWS CLI uses the proper configurations for created cluster
 aws eks update-kubeconfig --name "$clusterName"
-wait
 
+# Creates the fargate profile to run the containers with
 eksctl create fargateprofile --cluster "$clusterName" --region "$region" --name alb-sample-app --namespace game-2048
-wait
 
+# Applies the YAML provided to create the namespace, deployment, service, then ingress
 kubectl apply -f ./snake_full.yaml
-wait
 
+# Command to integrate the IAM into the ALB to communicate with those resources
 eksctl utils associate-iam-oidc-provider --cluster "$clusterName" --approve
-wait
 
+# Creates an IAM policy for the ALB to use AWS resources
 aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
-wait
 
+# Creates an IAM service account for the ALB to use
 eksctl create iamserviceaccount \
   --cluster=$clusterName \
   --namespace=kube-system \
@@ -39,19 +43,17 @@ eksctl create iamserviceaccount \
   --role-name AmazonEKSLoadBalancerControllerRole \
   --attach-policy-arn=arn:aws:iam::$awsAccountId:policy/AWSLoadBalancerControllerIAMPolicy \
   --approve
-wait
 
+# Connects to the HELM repository if not already there
 helm repo add eks https://aws.github.io/eks-charts
-wait
 
+# Updates the HELM repository
 helm repo update eks
-wait
 
-#need a command that returns the vpc id of the cluster I made
-
+#Gets the VPC ID of the created EKS cluster
 vpcId=$(aws eks describe-cluster --name '$clusterName' | grep -Po '"vpcId": *\K"[^"]*"' | tr -d \")
-#read -p 'What is your VPC id of this cluster?: ' vpcId
 
+# Uses Helm to install the ALB controller using the provided cluster, VPC and region information
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \            
   -n kube-system \
   --set clusterName=$clusterName \
@@ -59,9 +61,8 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set serviceAccount.name=aws-load-balancer-controller \
   --set region=$region \
   --set vpcId=$vpcId
-wait
 
-#check if deployments are running
+# Check if deployments are running
 deploymentRunning=false
 echo "Checking if deployment is running..."
 while [ $deploymentRunning == false ]
@@ -73,16 +74,15 @@ do
   fi
 done
 
-#if deployments are running, then run command to get the DNS address, so it can be printed out
+#If deployments are running then print out the DNS address
 dnsAddress=$(aws eks describe-cluster --name '$clusterName' | grep -Po '"endpoint": *\K"[^"]*"' | tr -d \")
 echo "The URL is $dnsAddress"
 echo "Opening URL now!"
 
-#then script will complete, maybe see if theres a command that will open DNS up on your browser?
+# Automatically open the DNS address on browser
 xdg-open $dnsAddress
-wait
 
-#if open up have a prompt that asks if you want to delete the cluster or not
+# Now that the URL is open, asks if wants to clean everything by deleting the cluster
 read -p 'URL open! Would you like to delete this cluster? (y if yes, n if no): ' exitPrompt
 if [ $exitPrompt == "y" ]; then
   eksctl delete cluster --name $clusterName --region $region
