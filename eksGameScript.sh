@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Script that spins up an EKS cluster and adds a web page onto the cluster
 # This script is mean't to streamline the process and only require minimal user input
