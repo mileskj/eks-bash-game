@@ -17,9 +17,12 @@ echo "Your AWS Account Id is: $awsAccountId"
 
 # Main command which creates the cluster on the specifications
 # TODO - if this command fails for any reason, create cluster cannot be run again due CloudFormationStack remaining
+# Sometimes CloudFormationStack doesn't delete because VPC doesn't want to delete and have to do it manually
 # Need to come up with a solution to this problem in script
 eksctl create cluster --name "$clusterName" --region "$region" --fargate
 
+# TODO - if there are any errors from here past when the cluster is created, I want to automatically delete the cluster
+# This will be to ensure when the script is run again, I won't have to do any cleanup before
 # Ensures that AWS CLI uses the proper configurations for created cluster
 aws eks update-kubeconfig --name "$clusterName"
 
