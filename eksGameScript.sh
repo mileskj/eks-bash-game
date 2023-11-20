@@ -19,12 +19,12 @@ echo "Your AWS Account Id is: $awsAccountId"
 # TODO - if this command fails for any reason, create cluster cannot be run again due CloudFormationStack remaining
 # Sometimes CloudFormationStack doesn't delete because VPC doesn't want to delete and have to do it manually
 # Need to come up with a solution to this problem in script
-eksctl create cluster --name "$clusterName" --region "$region" --fargate
+eksctl create cluster --name $clusterName --region $region --fargate
 
 # TODO - if there are any errors from here past when the cluster is created, I want to automatically delete the cluster
 # This will be to ensure when the script is run again, I won't have to do any cleanup before
 # Ensures that AWS CLI uses the proper configurations for created cluster
-aws eks update-kubeconfig --name "$clusterName"
+aws eks update-kubeconfig --name $clusterName --region $region
 
 # Creates the fargate profile to run the containers with
 eksctl create fargateprofile --cluster "$clusterName" --region "$region" --name alb-sample-app --namespace game-2048
@@ -34,6 +34,9 @@ kubectl apply -f ./snake_full.yaml
 
 # Command to integrate the IAM into the ALB to communicate with those resources
 eksctl utils associate-iam-oidc-provider --cluster "$clusterName" --approve
+
+#Downloads the IAM Policy JSON
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.4/docs/install/iam_policy.json
 
 # Creates an IAM policy for the ALB to use AWS resources
 aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
@@ -70,7 +73,7 @@ deploymentRunning=false
 echo "Checking if deployment is running..."
 while [ $deploymentRunning == false ]
 do
-  replicasNumber=$(kubectl get deployment -n kube-system aws-load-balancer-controller -o=jsonpath='{$.status.availableReplicas}' | tr -d \")
+  replicasNumber=$(kubectl get deployment -n kube-system aws-load-balancer-controller -o=jsonpath='{$.status.readyReplicas}' | tr -d \")
   if [ $((replicasNumber)) >= 1 ]; then
   echo "Deployment is now running!"
     deploymentRunning=true
@@ -89,6 +92,7 @@ xdg-open $dnsAddress
 read -p 'URL open! Would you like to delete this cluster? (y if yes, n if no): ' exitPrompt
 if [ $exitPrompt == "y" ]; then
   eksctl delete cluster --name $clusterName --region $region
+  eksctl delete iamserviceaccount --cluster $clusterName --namespace kube-system --name aws-load-balancer-controller
   wait
   echo "Cluster deleted! Exiting now."
   exit 0
