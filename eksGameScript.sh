@@ -81,6 +81,7 @@ do
 done
 
 #If deployments are running then print out the DNS address
+#TODO - This might not be the DNS address you need, but instead the one on the ec2 load balancer
 dnsAddress=$(aws eks describe-cluster --name '$clusterName' | grep -Po '"endpoint": *\K"[^"]*"' | tr -d \")
 echo "The URL is $dnsAddress"
 echo "Opening URL now!"
@@ -92,6 +93,8 @@ xdg-open $dnsAddress
 read -p 'URL open! Would you like to delete this cluster? (y if yes, n if no): ' exitPrompt
 if [ $exitPrompt == "y" ]; then
   eksctl delete cluster --name $clusterName --region $region
+  #TODO - Deleting load balancer on EC2 can stall, might need to do it directly
+
   eksctl delete iamserviceaccount --cluster $clusterName --namespace kube-system --name aws-load-balancer-controller
   wait
   echo "Cluster deleted! Exiting now."
