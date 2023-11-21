@@ -20,7 +20,7 @@ spec:
         app.kubernetes.io/name: app-snake
     spec:
       containers:
-      - image: public.ecr.aws/l6m2t8p7/docker-2048:latest
+      - image: public.ecr.aws/dshubhra/snake-game:latest
         imagePullPolicy: Always
         name: app-snake
         ports:

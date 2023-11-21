@@ -27,7 +27,7 @@ eksctl create cluster --name $clusterName --region $region --fargate
 aws eks update-kubeconfig --name $clusterName --region $region
 
 # Creates the fargate profile to run the containers with
-eksctl create fargateprofile --cluster "$clusterName" --region "$region" --name alb-sample-app --namespace game-2048
+eksctl create fargateprofile --cluster "$clusterName" --region "$region" --name alb-sample-app --namespace $namespace
 
 # Applies the YAML provided to create the namespace, deployment, service, then ingress
 kubectl apply -f ./snake_full.yaml
