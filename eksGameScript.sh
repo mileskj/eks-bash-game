@@ -27,6 +27,7 @@ eksctl create cluster --name $clusterName --region $region --fargate
 aws eks update-kubeconfig --name $clusterName --region $region
 
 # Creates the fargate profile to run the containers with
+# TODO - Need to get the namespace from the yaml and put it in this command
 eksctl create fargateprofile --cluster "$clusterName" --region "$region" --name alb-sample-app --namespace $namespace
 
 # Applies the YAML provided to create the namespace, deployment, service, then ingress
